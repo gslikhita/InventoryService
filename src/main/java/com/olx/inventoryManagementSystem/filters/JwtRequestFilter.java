@@ -2,12 +2,15 @@ package com.olx.inventoryManagementSystem.filters;
 
 import com.olx.inventoryManagementSystem.exceptions.ForbiddenRequestException;
 import com.olx.inventoryManagementSystem.exceptions.InvalidTokenException;
+import com.olx.inventoryManagementSystem.exceptions.TokenExpiredException;
 import com.olx.inventoryManagementSystem.repository.UserRepository;
-import com.olx.inventoryManagementSystem.service.LoginUserService;
 import com.olx.inventoryManagementSystem.utils.JwtUtil;
+import com.olx.inventoryManagementSystem.utils.LoadByUsername;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,66 +27,56 @@ import java.io.IOException;
 
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
-
+    public static final String AUTHORIZATION = "Authorization";
+    public static final String TOKEN_IS_INVALID = "Token is Invalid";
+    public static final String FORBIDDEN_REQUEST = "Forbidden Request";
+    public static final String TOKEN_IS_EXPIRED = "Token is expired";
     private final static String BEARER = "Bearer ";
+    private static final String[] PERMITTED_URI = new String[]{"/users/register", "/users/login", "swagger-ui", "api-docs"};
 
-    @Autowired
     UserRepository userRepository;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    JwtUtil jwtUtil;
 
-    @Autowired
-    private LoginUserService loginUserService;
+    LoadByUsername loadByUsername;
 
-    @Autowired
     @Qualifier("handlerExceptionResolver")
     private HandlerExceptionResolver resolver;
 
-    // TODO: do not change code for the testing purpose! do not add autowired false for testing
-    // TODO: do not use lazy!
-    @Autowired(required = false)
-    public JwtRequestFilter(@Lazy UserRepository userRepository, LoginUserService loginUserService, JwtUtil jwtUtil) {
-        this.userRepository = userRepository;
-        this.loginUserService = loginUserService;
+    @Autowired
+    public JwtRequestFilter(UserRepository userRepository, LoadByUsername loadByUsername, JwtUtil jwtUtil, @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
+        this.loadByUsername = loadByUsername;
+        this.resolver = resolver;
     }
 
-    @Autowired(required = false)
-    public JwtRequestFilter(HandlerExceptionResolver resolver) {
-        this.resolver = resolver;
+    private static String getHeader(HttpServletRequest request) {
+        return request.getHeader(AUTHORIZATION);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-         // TODO: magic string!!
-        final String authorizationHeader = request.getHeader("Authorization");
-        if (isRequestPermittedWithNoAuthorizationHeader(request, response, filterChain)) return;
-        if (!authorizationHeader.startsWith(BEARER)) {
-            resolver.resolveException(request, response, null, new InvalidTokenException("Token is Invalid"));
+        if (isPermitted(request)) {
+            filterChain.doFilter(request, response);
             return;
         }
-        // TODO: inline variables
-        String jwt = authorizationHeader.substring(7);
-        String email = getEmail(jwt, request, response);
-        validateToken(request, email, jwt);
-        filterChain.doFilter(request, response);
-    }
+        if (isRequestPermittedWithNoAuthorizationHeader(request, response, filterChain)) return;
+        if (!getHeader(request).startsWith(BEARER)) {
+            resolver.resolveException(request, response, null, new InvalidTokenException(TOKEN_IS_INVALID));
+            return;
+        }
 
-    private void validateToken(HttpServletRequest request, String email, String jwt) {
-        // TODO: remove checks which are not required.
+        String email = getEmail(getHeader(request).substring(7), request, response);
         if (email == null) {
             return;
         }
+        validateToken(request, email);
+        filterChain.doFilter(request, response);
+    }
 
-        // TODO: check if securiry context holder is required or not
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
-            return;
-        }
-        UserDetails userDetails = this.loginUserService.loadUserByUsername(email);
-        if (!jwtUtil.validateToken(jwt, userDetails)) {
-            return;
-        }
+    private void validateToken(HttpServletRequest request, String email) {
+        UserDetails userDetails = this.loadByUsername.loadUserByUsername(email);
         UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -94,24 +87,26 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String email = null;
         try {
             email = jwtUtil.extractEmail(jwt);
+        } catch (ExpiredJwtException e) {
+            resolver.resolveException(request, response, null, new TokenExpiredException(TOKEN_IS_EXPIRED));
+        } catch (SignatureException e) {
+            resolver.resolveException(request, response, null, new InvalidTokenException(TOKEN_IS_INVALID));
+        } catch (MalformedJwtException e) {
+            resolver.resolveException(request, response, null, new TokenExpiredException(TOKEN_IS_INVALID));
         } catch (Exception e) {
-            // TODO : do not catch EXCEPTION at the top level.
-            resolver.resolveException(request, response, null, new InvalidTokenException("Token is Invalid"));
+            e.printStackTrace();
+            resolver.resolveException(request, response, null, new Exception(e.getMessage()));
         }
         return email;
     }
 
     private boolean isRequestPermittedWithNoAuthorizationHeader(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // TODO: DRY
-        // TODO: Magic strings
-        String authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null) {
+        if (getHeader(request) != null) {
             return false;
         }
         if (!isPermitted(request)) {
-            // TODO: Magic strings
-            resolver.resolveException(request, response, null, new ForbiddenRequestException("Forbidden Request"));
+            resolver.resolveException(request, response, null, new ForbiddenRequestException(FORBIDDEN_REQUEST));
             return true;
         }
         filterChain.doFilter(request, response);
@@ -119,11 +114,13 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     }
 
     private boolean isPermitted(HttpServletRequest request) {
-        // TODO: Magic strings
-        // TODO: Map of urls which are allowed
-        return request.getRequestURI().equals("/users/register") || request.getRequestURI().equals("/users/login")
-                || request.getRequestURI().contains("swagger-ui") || request.getRequestURI().contains("api-docs");
+        String requestURI = request.getRequestURI();
+        for (String uri : PERMITTED_URI) {
+            if (requestURI.contains(uri)) {
+                return true;
+            }
+        }
+        return false;
     }
+
 }
-
-

@@ -1,0 +1,20 @@
+{
+  "type": "bike",
+  "location": "mumbai",
+  "attributes": {
+    "vin": "AP31CM9873",
+    "make": "Tata",
+    "model": "Nexon"
+  },
+  "costPrice": 450000.0,
+  "secondaryStatus": [
+    {
+      "name": "warehouse",
+      "status": "in-repair"
+    },
+    {
+      "name": "transit",
+      "status": "in-progress"
+    }
+  ]
+}

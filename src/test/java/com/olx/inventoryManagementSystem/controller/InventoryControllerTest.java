@@ -11,6 +11,7 @@ import com.olx.inventoryManagementSystem.repository.UserRepository;
 import com.olx.inventoryManagementSystem.service.InventoryService;
 import com.olx.inventoryManagementSystem.service.LoginUserService;
 import com.olx.inventoryManagementSystem.utils.JwtUtil;
+import com.olx.inventoryManagementSystem.utils.LoadByUsername;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,9 @@ class InventoryControllerTest {
     @MockBean
     JPAUserRepository jpaUserRepository;
 
+    @MockBean
+    LoadByUsername loadByUsername;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -72,7 +76,7 @@ class InventoryControllerTest {
 
         MockHttpServletRequestBuilder postRequest = post("/inventories")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"type\":\"bike\",\"location\":\"mumbai\",\"attributes\":{\"vin\":\"AP31CM9873\",\"make\":\"Tata\",\"model\":\"Nexon\"},\"costPrice\":450000.0,\"secondaryStatus\":[{\"name\":\"warehouse\",\"status\":\"in-repair\"},{\"name\":\"transit\",\"status\":\"in-progress\"}]}");
+                .content(parseFile("src/test/java/com/olx/inventoryManagementSystem/controller/testData/InventoryRequest.json"));
 
         this.mockMvc.perform(postRequest)
                 .andExpect(status().isCreated())
@@ -94,13 +98,6 @@ class InventoryControllerTest {
         verify(inventoryService, times(1)).getInventories(PageRequest.of(0, 10, Sort.by(Sort.Order.asc("sku"))));
     }
 
-    // TODO: check this out
-    private String parseFile(String path) throws IOException {
-        String stringContent = new String(Files.readAllBytes(Paths.get(path)));
-        stringContent = stringContent.replace("\n", "").replace(" ","");
-        return stringContent;
-    }
-
     @Test
     void ShouldFetchInventoryFromGetApiForParticularSku() throws Exception {
         when(inventoryService.getInventory("d59fdbd5-0c56-4a79-8905-6989601890be")).thenReturn(dummyInventoryResponse(dummyAttributes(), dummyStatuses()));
@@ -120,7 +117,7 @@ class InventoryControllerTest {
 
         MockHttpServletRequestBuilder putRequest = put("/inventories/d59fdbd5-0c56-4a79-8905-6989601890be/statuses")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("[{\"name\":\"warehouse\",\"status\":\"in-repair\"},{\"name\":\"transit\",\"status\":\"in-progress\"}]");
+                .content(parseFile("src/test/java/com/olx/inventoryManagementSystem/controller/testData/SecondaryStatus.json"));
 
         this.mockMvc.perform(putRequest)
                 .andExpect(status().isNoContent());
@@ -133,10 +130,14 @@ class InventoryControllerTest {
 
         MockHttpServletRequestBuilder patchRequest = patch("/inventories/d59fdbd5-0c56-4a79-8905-6989601890be")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"status\":\"procured\",\"costPrice\":460000,\"attributes\":{\"color\":\"red\",\"year\":2021}}");
+                .content(parseFile("src/test/java/com/olx/inventoryManagementSystem/controller/testData/Attributes.json"));
 
         this.mockMvc.perform(patchRequest)
                 .andExpect(status().isNoContent());
+    }
+
+    private String parseFile(String path) throws IOException {
+        return (new String(Files.readAllBytes(Paths.get(path))).replace("\n", "").replace(" ",""));
     }
 
     private static Map<String, Object> dummyAttributesMap(){

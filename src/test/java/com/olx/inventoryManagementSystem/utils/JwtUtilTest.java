@@ -1,5 +1,7 @@
 package com.olx.inventoryManagementSystem.utils;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -7,17 +9,16 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 class JwtUtilTest {
+
+    private final String SECRET_KEY = "InventoryManagementSystem@123";
 
     private static UserDetails dummy;
 
     private static String jwtToken;
 
     JwtUtil jwtUtil;
-
-    UserDetails userDetails = mock(UserDetails.class);
 
     @BeforeEach
     void init() {
@@ -42,16 +43,14 @@ class JwtUtilTest {
 
     @Test
     void ShouldReturnGeneratedToken() {
-        String actualToken = jwtUtil.generateToken(userDetails);
+        String actualToken = jwtUtil.generateToken(dummy);
+        Claims claims = Jwts.parser()
+                            .setSigningKey(SECRET_KEY)
+                            .parseClaimsJws(actualToken)
+                            .getBody();
+        String email = claims.getSubject();
 
         assertFalse(actualToken.isEmpty());
-    }
-
-    // TODO: test cases are just for the coverage not for the usecase
-    @Test
-    void ShouldReturnFalseWhenTokenIsInvalid() {
-        Boolean actualBool = jwtUtil.validateToken(jwtToken, userDetails);
-
-        assertFalse(actualBool);
+        assertEquals(email,"user@email.com");
     }
 }

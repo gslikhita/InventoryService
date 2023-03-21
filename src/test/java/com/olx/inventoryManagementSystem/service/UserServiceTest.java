@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.Optional;
+
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -42,22 +44,23 @@ class UserServiceTest {
     public void ShouldThrowUserAlreadyException() {
         String email = "user@email.com";
         User user = new User(email, "vparimal587");
-        when(userRepository.userExistByEmail(email)).thenReturn(user);
+        when(userRepository.ExistByEmail(email)).thenReturn(Optional.of(user));
         String expectedResponse = "User Already Exists";
 
         Exception actualError = Assertions.assertThrows(Exception.class, () -> userService.createUser(new UserRequest(email, "vparimal587")));
 
         assertEquals(expectedResponse, actualError.getMessage());
-        verify(userRepository, times(1)).userExistByEmail(email);
+        verify(userRepository, times(1)).ExistByEmail(email);
     }
 
     @Test
     public void ShouldReturnEmailWhenUserIsCreated() throws UserAlreadyExistsException {
         String email = "user@email.com";
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        when(userRepository.userExistByEmail(email)).thenReturn(null);
+        Optional<User> user=Optional.empty();
+        when(userRepository.ExistByEmail(email)).thenReturn(user);
         when(webSecurityConfig.passwordEncoder()).thenReturn(new BCryptPasswordEncoder());
-        when(userRepository.createUser(UserCaptor.capture())).thenReturn(email);
+        when(userRepository.create(UserCaptor.capture())).thenReturn(email);
 
         String actualEmail = userService.createUser(new UserRequest(email, "vparimal587"));
 
@@ -65,7 +68,7 @@ class UserServiceTest {
         User UserCaptorValue = UserCaptor.getValue();
         assertEquals(email,UserCaptorValue.getEmail());
         assertTrue(encoder.matches("vparimal587",UserCaptorValue.getPassword()));
-        verify(userRepository, times(1)).userExistByEmail(email);
+        verify(userRepository, times(1)).ExistByEmail(email);
         verify(webSecurityConfig, times(1)).passwordEncoder();
     }
 

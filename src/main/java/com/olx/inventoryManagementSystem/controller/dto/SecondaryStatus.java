@@ -15,7 +15,6 @@ import java.util.Objects;
 public class SecondaryStatus implements Serializable {
 
     String name;
-
     String status;
 
     @Override

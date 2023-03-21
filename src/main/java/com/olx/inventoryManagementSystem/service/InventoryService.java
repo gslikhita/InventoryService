@@ -12,6 +12,7 @@ import com.olx.inventoryManagementSystem.repository.InventoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ReflectionUtils;
 
@@ -22,10 +23,12 @@ import java.util.Map;
 
 @Service
 public class InventoryService {
-    InventoryRepository inventoryRepository;
-
+    public static final String TYPE_NOT_SUPPORTED = " is not supported";
+    public static final String ATTRIBUTES = "attributes";
     private final static String CAR_TYPE = "car";
     private final static String BIKE_TYPE = "bike";
+
+    InventoryRepository inventoryRepository;
 
     @Autowired
     public InventoryService(InventoryRepository inventoryRepository) {
@@ -34,59 +37,61 @@ public class InventoryService {
 
     public String createInventory(InventoryRequest inventoryRequest) throws InvalidTypeException {
         isAcceptableInventoryType(inventoryRequest.getType());
-        // TODO: created and updated at should be based on user.
-        Inventory inventory = new Inventory(inventoryRequest.getType(), inventoryRequest.getLocation(), "user",
-                "user", (Object) inventoryRequest.getAttributes(), inventoryRequest.getCostPrice(),
+        Inventory inventory = new Inventory(inventoryRequest.getType(), inventoryRequest.getLocation(),
+                getEmail(), inventoryRequest.getAttributes(), inventoryRequest.getCostPrice(),
                 inventoryRequest.getSecondaryStatus());
-        return this.inventoryRepository.createInventory(inventory);
+        return this.inventoryRepository.create(inventory);
     }
 
     public InventoryResponse getInventory(String InventorySku) throws InventoryNotFoundException {
-        Inventory inventory = this.inventoryRepository.findInventory(InventorySku);
-        return new InventoryResponse(inventory.getSku(), inventory.getType(), inventory.getStatus(),
-                inventory.getLocation(), inventory.getCreatedAt(), inventory.getUpdatedAt(), inventory.getCreatedBy(),
-                inventory.getUpdatedBy(), inventory.getAttributes(), inventory.getCostPrice(),
-                inventory.getSecondaryStatus());
+        Inventory inventory = this.inventoryRepository.find(InventorySku);
+        return getInventoryResponse(inventory);
     }
 
     public List<InventoryResponse> getInventories(Pageable pageable) {
         List<InventoryResponse> listOfGetResponses = new ArrayList<>();
-        Page<Inventory> listOfInventories = this.inventoryRepository.fetchInventories(pageable);
+        Page<Inventory> listOfInventories = this.inventoryRepository.fetch(pageable);
         for (Inventory inventory : listOfInventories) {
-            // TODO: DRY
-            InventoryResponse inventoryDetails = new InventoryResponse(inventory.getSku(), inventory.getType(),
-                    inventory.getStatus(), inventory.getLocation(), inventory.getCreatedAt(), inventory.getUpdatedAt(),
-                    inventory.getCreatedBy(), inventory.getUpdatedBy(), inventory.getAttributes(),
-                    inventory.getCostPrice(), inventory.getSecondaryStatus());
-            listOfGetResponses.add(inventoryDetails);
+            listOfGetResponses.add(getInventoryResponse(inventory));
         }
         return listOfGetResponses;
     }
 
     public void updateStatus(String sku, ArrayList<SecondaryStatus> secondaryStatus)
             throws InventoryNotFoundException {
-        Inventory inventory = this.inventoryRepository.findInventory(sku);
-        inventory.UpdateStatus(inventory, secondaryStatus);
-        inventoryRepository.saveInventory(inventory);
+        Inventory inventory = this.inventoryRepository.find(sku);
+        inventory.UpdateStatus(secondaryStatus);
+        inventory.updateLastUser(getEmail());
+        inventory.updateLastTime();
+        inventoryRepository.save(inventory);
     }
 
     public void patchInventory(String sku, Map<String, Object> field) throws InventoryNotFoundException {
-        Inventory inventory = inventoryRepository.findInventory(sku);
+        Inventory inventory = inventoryRepository.find(sku);
         updateInventory(field, inventory);
-        inventoryRepository.saveInventory(inventory);
+        inventory.updateLastUser(getEmail());
+        inventory.updateLastTime();
+        inventoryRepository.save(inventory);
+    }
+
+    private static InventoryResponse getInventoryResponse(Inventory inventory) {
+        return new InventoryResponse(inventory.getSku(), inventory.getType(), inventory.getStatus(),
+                inventory.getLocation(), inventory.getCreatedAt(), inventory.getUpdatedAt(), inventory.getCreatedBy(),
+                inventory.getUpdatedBy(), inventory.getAttributes(), inventory.getCostPrice(),
+                inventory.getSecondaryStatus());
     }
 
     private static void isAcceptableInventoryType(String type) throws InvalidTypeException {
         if (!type.equalsIgnoreCase(CAR_TYPE)
                 && !type.equalsIgnoreCase(BIKE_TYPE)) {
-            throw new InvalidTypeException(type + " is not supported");
+            throw new InvalidTypeException(type + TYPE_NOT_SUPPORTED);
         }
     }
 
     private static void updateInventory(Map<String, Object> field, Inventory inventory) {
         field.forEach((key, value) -> {
             Field foundField = ReflectionUtils.findField(Inventory.class, key);
-            if (!key.equals("attributes")) {
+            if (!key.equals(ATTRIBUTES)) {
                 setFields(inventory, value, foundField);
                 return;
             }
@@ -102,14 +107,19 @@ public class InventoryService {
 
     private static void updateAttributes(Inventory inventory, Object value, Field foundField) {
         ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> valueMap = mapper.convertValue(value, new TypeReference<Map<String, Object>>() {
+        Map<String, Object> valueMap = mapper.convertValue(value, new TypeReference<>() {
         });
         Map<String, Object> prevValueMap = mapper.convertValue(inventory.getAttributes(),
-                new TypeReference<Map<String, Object>>() {
+                new TypeReference<>() {
                 });
         prevValueMap.putAll(valueMap);
         foundField.setAccessible(true);
         ReflectionUtils.setField(foundField, inventory, prevValueMap);
+    }
+
+    private static String getEmail() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+
     }
 
 }

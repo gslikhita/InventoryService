@@ -23,9 +23,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @EqualsAndHashCode
 @Component
+@AllArgsConstructor
 @TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
 public class Inventory {
 
+    public static final String CREATED = "created";
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(columnDefinition = "serial")
@@ -33,9 +35,7 @@ public class Inventory {
 
     private String sku;
     private String type;
-
-    // TODO: values should be part of constructor
-    private String status = "created";
+    private String status;
     private String location;
 
     @JsonDeserialize(using = LocalDateTimeDeserializer.class)
@@ -68,62 +68,53 @@ public class Inventory {
     @Type(type = "jsonb")
     private ArrayList<SecondaryStatus> secondaryStatus;
 
-    public Inventory(String type, String location, String createdBy, String updatedBy, Object attributes,
+    public Inventory(String type, String location, String email, Object attributes,
                      float costPrice, ArrayList<SecondaryStatus> secondaryStatus) {
-        // TODO: inline variables
-        UUID sku = UUID.randomUUID();
         LocalDateTime localDateTime = LocalDateTime.now();
-        this.sku = sku.toString();
+        this.sku = UUID.randomUUID().toString();
         this.type = type;
+        this.status = CREATED;
         this.location = location;
         this.createdAt = localDateTime;
         this.updatedAt = localDateTime;
-        this.createdBy = createdBy;
-        this.updatedBy = updatedBy;
+        this.createdBy = email;
+        this.updatedBy = email;
         this.attributes = attributes;
         this.costPrice = costPrice;
         this.secondaryStatus = secondaryStatus;
     }
 
-    // TODO: NEVER MAKE CODE CHANGES FOR TEST IN YOUR PRODUCTION CODE
-    public Inventory(String sku, String type, String location, String createdBy, String updatedBy, Object attributes, float costPrice, float soldAt, ArrayList<SecondaryStatus> secondaryStatus) {
-        this.sku = sku;
-        this.id = 7;
-        this.type = type;
-        this.location = location;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.createdBy = createdBy;
-        this.updatedBy = updatedBy;
-        this.attributes = attributes;
-        this.costPrice = costPrice;
-        this.soldAt = soldAt;
-        this.secondaryStatus = secondaryStatus;
-    }
-
-    public void UpdateStatus(Inventory inventory, ArrayList<SecondaryStatus> secondaryStatus) {
-        ArrayList<SecondaryStatus> inventorySecondaryStatus = inventory.getSecondaryStatus();
+    public void UpdateStatus(ArrayList<SecondaryStatus> secondaryStatus) {
+        ArrayList<SecondaryStatus> inventorySecondaryStatus = this.getSecondaryStatus();
         for (SecondaryStatus statuses : secondaryStatus) {
             if (!inventorySecondaryStatus.contains(statuses)) {
-                this.addStatus(inventory, statuses);
+                this.addStatus(statuses);
                 continue;
             }
-            this.changeStatus(inventory, statuses);
+            this.changeStatus(statuses);
         }
     }
 
-    private void changeStatus(Inventory inventory, SecondaryStatus statuses) {
-        ArrayList<SecondaryStatus> statusArrayList = inventory.getSecondaryStatus();
+    private void changeStatus(SecondaryStatus statuses) {
+        ArrayList<SecondaryStatus> statusArrayList = this.getSecondaryStatus();
         for (SecondaryStatus status : statusArrayList) {
             if (status.getName().equals(statuses.getName())) {
                 status.setStatus(statuses.getStatus());
             }
         }
-        inventory.setSecondaryStatus(statusArrayList);
+        this.setSecondaryStatus(statusArrayList);
     }
 
-    private void addStatus(Inventory inventory, SecondaryStatus statuses) {
-        ArrayList<SecondaryStatus> statusArrayList = inventory.getSecondaryStatus();
+    private void addStatus(SecondaryStatus statuses) {
+        ArrayList<SecondaryStatus> statusArrayList = this.getSecondaryStatus();
         statusArrayList.add(statuses);
+    }
+
+    public void updateLastUser(String email) {
+        this.setUpdatedBy(email);
+    }
+
+    public void updateLastTime() {
+        this.setUpdatedAt(LocalDateTime.now());
     }
 }

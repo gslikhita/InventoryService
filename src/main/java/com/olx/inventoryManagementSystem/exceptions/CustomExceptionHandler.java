@@ -4,12 +4,29 @@ import lombok.NoArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @ControllerAdvice
 @NoArgsConstructor
-public class CustomExceptionHandler {
+public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
+
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+                                                                  HttpHeaders headers, HttpStatus status, WebRequest request) {
+        List<ExceptionResponse> exceptionResponses = new ArrayList<>();
+        ex.getBindingResult().getAllErrors().forEach((error) -> {
+            String errorMessage = ((FieldError) error).getField() + " " + error.getDefaultMessage();
+            exceptionResponses.add(new ExceptionResponse("InvalidRequest", errorMessage));
+        });
+        return new ResponseEntity<>(exceptionResponses, new HttpHeaders(), HttpStatus.BAD_REQUEST);
+    }
 
     @ExceptionHandler({InventoryNotFoundException.class})
     public ResponseEntity<Object> handlerInventoryNotFoundException(InventoryNotFoundException ex) {
@@ -53,10 +70,15 @@ public class CustomExceptionHandler {
         return new ResponseEntity<>(exceptionResponse, new HttpHeaders(), HttpStatus.FORBIDDEN);
     }
 
-    // TODO: write unknown exception handler
-//    @ExceptionHandler({Exception.class})
-//    public ResponseEntity<Object> handlerForbiddenRequestException(ForbiddenRequestException ex) {
-//        final ExceptionResponse exceptionResponse = new ExceptionResponse("Unknown Error", ex.getMessage());
-//        return new ResponseEntity<>(exceptionResponse, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR);
-//    }
+    @ExceptionHandler({TokenExpiredException.class})
+    public ResponseEntity<Object> handlerTokenExpiredException(TokenExpiredException ex) {
+        final ExceptionResponse exceptionResponse = new ExceptionResponse("Expired", ex.getMessage());
+        return new ResponseEntity<>(exceptionResponse, new HttpHeaders(), HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler({Exception.class})
+    public ResponseEntity<Object> handlerException(Exception ex) {
+        final ExceptionResponse exceptionResponse = new ExceptionResponse("Unknown", ex.getMessage());
+        return new ResponseEntity<>(exceptionResponse, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

@@ -3,7 +3,6 @@ package com.olx.inventoryManagementSystem.controller;
 import com.olx.inventoryManagementSystem.controller.dto.LoginResponse;
 import com.olx.inventoryManagementSystem.controller.dto.RegistrationResponse;
 import com.olx.inventoryManagementSystem.controller.dto.UserRequest;
-import com.olx.inventoryManagementSystem.exceptions.InvalidLoginCredential;
 import com.olx.inventoryManagementSystem.exceptions.UserAlreadyExistsException;
 import com.olx.inventoryManagementSystem.service.LoginUserService;
 import com.olx.inventoryManagementSystem.service.UserService;
@@ -14,34 +13,28 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
+
 @RestController
 public class UserController {
-    @Autowired
+    public static final String USER_SUCCESSFULLY_REGISTERED = "User Successfully Registered";
     UserService userService;
-
-    @Autowired
     private LoginUserService loginUserService;
 
-    // TODO: should only one one constructor and autowired should not be false!
-    @Autowired(required = false)
-    public UserController(UserService userService) {
+    @Autowired
+    public UserController(UserService userService, LoginUserService loginUserService) {
         this.userService = userService;
-    }
-
-    @Autowired(required = false)
-    public UserController(LoginUserService loginUserService) {
         this.loginUserService = loginUserService;
     }
 
     @PostMapping("/users/register")
-    public ResponseEntity<RegistrationResponse> createUser(@RequestBody UserRequest userRequest) throws UserAlreadyExistsException {
+    public ResponseEntity<RegistrationResponse> createUser(@Valid @RequestBody UserRequest userRequest) throws UserAlreadyExistsException {
         this.userService.createUser(userRequest);
-        // TODO: do not use magic strings and constants
-        return new ResponseEntity<>(new RegistrationResponse("User Successfully Registered"), HttpStatus.CREATED);
+        return new ResponseEntity<>(new RegistrationResponse(USER_SUCCESSFULLY_REGISTERED), HttpStatus.CREATED);
     }
 
     @PostMapping("/users/login")
-    public ResponseEntity<LoginResponse> createAuthenticationToken(@RequestBody UserRequest userRequest) throws InvalidLoginCredential {
+    public ResponseEntity<LoginResponse> createAuthenticationToken(@Valid @RequestBody UserRequest userRequest) throws Exception{
         return new ResponseEntity<>(this.loginUserService.createAuthenticationToken(userRequest), HttpStatus.CREATED);
     }
 }

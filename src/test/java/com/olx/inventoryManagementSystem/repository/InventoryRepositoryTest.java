@@ -36,10 +36,10 @@ class InventoryRepositoryTest {
 
     @Test
     void ShouldReturnIdFromDB() {
-        Inventory inventory = new Inventory("car", "Mumbai", "user", "user", dummyAttributes(), 450000, dummySecondaryStatus());
+        Inventory inventory = new Inventory("car", "Mumbai", "user", dummyAttributes(), 450000, dummySecondaryStatus());
         when(jpaInventoryRepository.save(inventory)).thenReturn(inventory);
 
-        String actualId = inventoryRepository.createInventory(inventory);
+        String actualId = inventoryRepository.create(inventory);
 
         assertFalse(actualId.isEmpty());
         verify(jpaInventoryRepository, times(1)).save(inventory);
@@ -48,35 +48,35 @@ class InventoryRepositoryTest {
     @Test
     void ShouldReturnInventoryForValidSku() throws InventoryNotFoundException {
         String sku = "d59fdbd5-0c56-4a79-8905-6989601890be";
-        Inventory expected = new Inventory("car", "Mumbai", "user", "user", dummyAttributes(), 450000, dummySecondaryStatus());
-        when(jpaInventoryRepository.findById(sku)).thenReturn(Optional.of(expected));
+        Inventory expected = new Inventory("car", "Mumbai","user", dummyAttributes(), 450000, dummySecondaryStatus());
+        when(jpaInventoryRepository.findBySku(sku)).thenReturn(Optional.of(expected));
 
-        Inventory actual = inventoryRepository.findInventory(sku);
+        Inventory actual = inventoryRepository.find(sku);
 
         assertEquals(expected, actual);
-        verify(jpaInventoryRepository, times(1)).findById(sku);
+        verify(jpaInventoryRepository, times(1)).findBySku(sku);
     }
 
     @Test
     void ShouldReturnExceptionForInvalidSku() throws InventoryNotFoundException {
         String sku = "d59fdbd5-0c56-4a79-8905-6989601890be";
         Optional<Inventory> inventory = Optional.empty();
-        when(jpaInventoryRepository.findById(sku)).thenReturn(inventory);
+        when(jpaInventoryRepository.findBySku(sku)).thenReturn(inventory);
         String expectedError = "Inventory not found for sku - " + sku;
 
-        InventoryNotFoundException actualError = Assertions.assertThrows(InventoryNotFoundException.class, () -> inventoryRepository.findInventory(sku));
+        InventoryNotFoundException actualError = Assertions.assertThrows(InventoryNotFoundException.class, () -> inventoryRepository.find(sku));
 
         assertEquals(expectedError, actualError.getMessage());
-        verify(jpaInventoryRepository, times(1)).findById(sku);
+        verify(jpaInventoryRepository, times(1)).findBySku(sku);
     }
 
     @Test
     void shouldReturnPageOfInventories() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("sku")));
-        Page<Inventory> expectedInventories = new PageImpl<>(List.of(new Inventory("car", "Mumbai", "user", "user", dummyAttributes(), 450000, dummySecondaryStatus())));
+        Page<Inventory> expectedInventories = new PageImpl<>(List.of(new Inventory("car", "Mumbai","user", dummyAttributes(), 450000, dummySecondaryStatus())));
         when(jpaInventoryRepository.findAll(pageable)).thenReturn(expectedInventories);
 
-        Page<Inventory> actualInventories = inventoryRepository.fetchInventories(pageable);
+        Page<Inventory> actualInventories = inventoryRepository.fetch(pageable);
 
         assertEquals(expectedInventories, actualInventories);
         verify(jpaInventoryRepository, times(1)).findAll(pageable);
@@ -84,18 +84,14 @@ class InventoryRepositoryTest {
 
     @Test
     void ShouldReturnSkuAndUpdateStatus() {
-        String expectedSku = "d59fdbd5-0c56-4a79-8905-6989601890bf";
-        Inventory inventory = new Inventory("car", "Mumbai", "user", "user", dummyAttributes(), 450000, dummySecondaryStatus());
+        Inventory inventory = new Inventory("car", "Mumbai","user", dummyAttributes(), 450000, dummySecondaryStatus());
         when(jpaInventoryRepository.save(inventory)).thenReturn(inventory);
 
-        inventoryRepository.saveInventory(inventory);
+        inventoryRepository.save(inventory);
 
         verify(jpaInventoryRepository, times(1)).save(inventory);
     }
 
-    private void verifyMocksForUpdateInventory(Inventory inventory) {
-        verify(jpaInventoryRepository, times(1)).save(inventory);
-    }
 
     private static ArrayList<SecondaryStatus> dummySecondaryStatus() {
         ArrayList<SecondaryStatus> secondaryStatus = new ArrayList<>();
@@ -105,10 +101,10 @@ class InventoryRepositoryTest {
     }
 
     private static JsonNode dummyAttributes() {
-        JsonNode attributes = new ObjectMapper().createObjectNode();
-        ((ObjectNode) attributes).put("vin", "AP31CM9873");
-        ((ObjectNode) attributes).put("make", "Tata");
-        ((ObjectNode) attributes).put("model", "Nexon");
+        ObjectNode attributes = new ObjectMapper().createObjectNode();
+        attributes.put("vin", "AP31CM9873");
+        attributes.put("make", "Tata");
+        attributes.put("model", "Nexon");
         return attributes;
     }
 }

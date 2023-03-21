@@ -2,11 +2,13 @@ package com.olx.inventoryManagementSystem.filters;
 
 import com.olx.inventoryManagementSystem.exceptions.ForbiddenRequestException;
 import com.olx.inventoryManagementSystem.exceptions.InvalidTokenException;
+import com.olx.inventoryManagementSystem.exceptions.TokenExpiredException;
 import com.olx.inventoryManagementSystem.repository.JPAUserRepository;
 import com.olx.inventoryManagementSystem.repository.UserRepository;
 import com.olx.inventoryManagementSystem.security.WebSecurityConfig;
 import com.olx.inventoryManagementSystem.service.LoginUserService;
 import com.olx.inventoryManagementSystem.utils.JwtUtil;
+import com.olx.inventoryManagementSystem.utils.LoadByUsername;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +23,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
-import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,16 +39,9 @@ class JwtRequestFilterTest {
 
     JwtRequestFilter jwtRequestFilter;
 
-    JwtRequestFilter jwtFilter;
 
     @Mock
-    JPAUserRepository jpaUserRepository = mock(JPAUserRepository.class);
-
-    @Mock
-    UserRepository userRepository = new UserRepository(jpaUserRepository);
-
-    @Mock
-    LoginUserService loginUserService = new LoginUserService(userRepository);
+    UserRepository userRepository;
 
     @Mock
     JwtUtil jwtUtil = new JwtUtil();
@@ -56,14 +50,16 @@ class JwtRequestFilterTest {
     WebSecurityConfig webSecurityConfig;
 
     @Mock
+    LoadByUsername loadByUsername;
+
+    @Mock
     @Qualifier("handlerExceptionResolver")
     HandlerExceptionResolver resolver;
 
     @BeforeEach
     void setUp() {
         jwtUtil = new JwtUtil();
-        jwtRequestFilter = new JwtRequestFilter(userRepository, loginUserService, jwtUtil);
-        jwtFilter = new JwtRequestFilter(resolver);
+        jwtRequestFilter = new JwtRequestFilter(userRepository, loadByUsername, jwtUtil, resolver);
         dummy = new org.springframework.security.core.userdetails.User("user@email.com", "vparimal587", new ArrayList<>());
         jwtToken = jwtUtil.generateToken(dummy);
     }
@@ -74,11 +70,11 @@ class JwtRequestFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
         request.addHeader("Authorization", "Bearer " + jwtToken);
-        when(loginUserService.loadUserByUsername("user@email.com")).thenReturn(dummy);
+        when(loadByUsername.loadUserByUsername("user@email.com")).thenReturn(dummy);
 
         jwtRequestFilter.doFilterInternal(request, response, filterChain);
 
-        verify(loginUserService, times(1)).loadUserByUsername("user@email.com");
+        verify(loadByUsername, times(1)).loadUserByUsername("user@email.com");
     }
 
     @Test
@@ -88,21 +84,33 @@ class JwtRequestFilterTest {
         MockFilterChain filterChain = new MockFilterChain();
         request.addHeader("Authorization", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGVtYWlsLmNvbSIsImV4cCI6MTY3NzY4NzY1MSwiaWF0IjoxNjc3NjY5NjUxfQ.2UaKNDmUbgtnfdYI3WzTY4RjcboZJM9LOdGMYQqD95");
 
-        jwtFilter.doFilterInternal(request, response, filterChain);
+        jwtRequestFilter.doFilterInternal(request, response, filterChain);
 
         verify(resolver, times(1)).resolveException(request, response, null, new InvalidTokenException("Token is Invalid"));
     }
 
     @Test
-    void ShouldThrowRuntimeExceptionWhenTokenisInvalid() throws ServletException, IOException {
+    void ShouldResolveInvalidTokenException() throws ServletException, IOException {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
         request.addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGVtYWlsLmNvbSIsImV4cCI6MTY3NzY4NzY1MSwiaWF0IjoxNjc3NjY5NjUxfQ.2UaKNDmUbgtnfdYI3WzTY4RjcboZJM9LOdGMYQqD95");
 
-        jwtFilter.doFilterInternal(request, response, filterChain);
+        jwtRequestFilter.doFilterInternal(request, response, filterChain);
 
         verify(resolver, times(1)).resolveException(request, response, null, new InvalidTokenException("Token is Invalid"));
+    }
+
+    @Test
+    void ShouldResolveTokenExpiredException() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+        request.addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJTdW1hMUBnbWFpbC5jb20iLCJleHAiOjE2Nzg4NzM5MjIsImlhdCI6MTY3ODg3MzkyMX0.0SJQ7Jyg9v-XNWxZ7zrOZ4TleTCUi_7SbILOcnfKj2o");
+
+        jwtRequestFilter.doFilterInternal(request, response, filterChain);
+
+        verify(resolver, times(1)).resolveException(request, response, null, new TokenExpiredException("Token is expired"));
     }
 
     @Test
@@ -126,13 +134,13 @@ class JwtRequestFilterTest {
     }
 
     @Test
-    void WhenAuthorizationHeaderIsNullAndIsNotPermitted() throws IOException, ServletException {
+    void ShouldResolveForbiddenRequestException() throws IOException, ServletException {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
         request.setMethod("POST");
 
-        jwtFilter.doFilterInternal(request, response, filterChain);
+        jwtRequestFilter.doFilterInternal(request, response, filterChain);
 
         verify(resolver, times(1)).resolveException(request, response, null, new ForbiddenRequestException("Forbidden Request"));
     }

@@ -4,6 +4,8 @@ import com.olx.inventoryManagementSystem.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public class UserRepository {
     JPAUserRepository jpaUserRepository;
@@ -13,11 +15,11 @@ public class UserRepository {
         this.jpaUserRepository = jpaUserRepository;
     }
 
-    public User userExistByEmail(String email) {
+    public Optional<User> ExistByEmail(String email) {
         return jpaUserRepository.findByEmail(email);
     }
 
-    public String createUser(User user) {
+    public String create(User user) {
         return this.jpaUserRepository.save(user).getEmail();
     }
 }

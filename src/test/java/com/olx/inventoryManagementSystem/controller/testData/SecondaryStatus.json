@@ -1,0 +1,10 @@
+[
+  {
+    "name": "warehouse",
+    "status": "in-repair"
+  },
+  {
+    "name": "transit",
+    "status": "in-progress"
+  }
+]

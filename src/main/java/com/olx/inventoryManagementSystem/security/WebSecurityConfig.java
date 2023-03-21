@@ -1,7 +1,7 @@
 package com.olx.inventoryManagementSystem.security;
 
 import com.olx.inventoryManagementSystem.filters.JwtRequestFilter;
-import com.olx.inventoryManagementSystem.service.LoginUserService;
+import com.olx.inventoryManagementSystem.utils.LoadByUsername;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,14 +18,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+    public static final String USERS_URLS = "/users/**";
+    public static final String SWAGGER_UI = "/swagger-ui/**";
+    public static final String API_DOCS = "/v3/api-docs/**";
     @Autowired
-    LoginUserService loginUserService;
+    LoadByUsername loadByUsername;
     @Autowired
     JwtRequestFilter jwtRequestFilter;
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.userDetailsService(loginUserService);
+        auth.userDetailsService(loadByUsername);
     }
 
     @Override
@@ -34,11 +37,13 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 .csrf().disable()
                 .cors().disable()
                 .authorizeRequests()
-                .antMatchers("/users/**").permitAll()
+                .antMatchers(USERS_URLS).permitAll()
+                .antMatchers(SWAGGER_UI).permitAll()
+                .antMatchers(API_DOCS).permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-        http.addFilterAfter(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
     }
 

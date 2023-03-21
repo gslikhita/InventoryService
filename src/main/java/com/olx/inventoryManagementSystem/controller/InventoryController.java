@@ -14,6 +14,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,7 @@ public class InventoryController {
 
     @PostMapping("/inventories")
     @ResponseStatus(HttpStatus.CREATED)
-    public CreateInventoryResponse createInventory(@RequestBody InventoryRequest inventoryRequest) throws InvalidTypeException {
+    public CreateInventoryResponse createInventory(@Valid @RequestBody InventoryRequest inventoryRequest) throws InvalidTypeException {
         String inventoryId = this.inventoryService.createInventory(inventoryRequest);
         return new CreateInventoryResponse(inventoryId);
     }

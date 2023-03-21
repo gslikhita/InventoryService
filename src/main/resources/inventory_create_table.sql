@@ -1,7 +1,7 @@
 CREATE TABLE public.inventory
 (
     sku              varchar   NOT NULL,
-    id               serial4   NOT NULL,
+    id               serial   NOT NULL,
     "type"           varchar   NOT NULL,
     status           varchar NULL DEFAULT 'created':: character varying,
     "location"       varchar   NOT NULL,

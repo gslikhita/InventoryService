@@ -3,6 +3,7 @@ package com.olx.inventoryManagementSystem.controller.dto;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.*;
 
+import javax.validation.constraints.NotBlank;
 import java.util.ArrayList;
 
 @AllArgsConstructor
@@ -12,6 +13,8 @@ import java.util.ArrayList;
 @EqualsAndHashCode
 public class InventoryRequest {
 
+
+    @NotBlank
     String type;
     String location;
     JsonNode attributes;

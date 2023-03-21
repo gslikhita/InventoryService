@@ -12,6 +12,7 @@ import java.util.Optional;
 
 @Repository
 public class InventoryRepository {
+    public static final String INVENTORY_NOT_FOUND = "Inventory not found for sku - ";
     JPAInventoryRepository jpaInventoryRepository;
 
     @Autowired
@@ -19,24 +20,23 @@ public class InventoryRepository {
         this.jpaInventoryRepository = jpaInventoryRepository;
     }
 
-    // TODO: rename methods, remove suffixes.
-    public String createInventory(Inventory inventory) {
+    public String create(Inventory inventory) {
         return this.jpaInventoryRepository.save(inventory).getSku();
     }
 
-    public Inventory findInventory(String sku) throws InventoryNotFoundException {
-        Optional<Inventory> optionalInventory = this.jpaInventoryRepository.findById(sku);
+    public Inventory find(String sku) throws InventoryNotFoundException {
+        Optional<Inventory> optionalInventory = this.jpaInventoryRepository.findBySku(sku);
         if (optionalInventory.isEmpty()) {
-            throw new InventoryNotFoundException("Inventory not found for sku - " + sku);
+            throw new InventoryNotFoundException(INVENTORY_NOT_FOUND + sku);
         }
         return optionalInventory.get();
     }
 
-    public Page<Inventory> fetchInventories(Pageable pageable) {
+    public Page<Inventory> fetch(Pageable pageable) {
         return this.jpaInventoryRepository.findAll(pageable);
     }
 
-    public void saveInventory(Inventory inventory) {
+    public void save(Inventory inventory) {
         this.jpaInventoryRepository.save(inventory);
     }
 }
