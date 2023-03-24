@@ -8,9 +8,9 @@ import com.olx.inventoryManagementSystem.service.LoginUserService;
 import com.olx.inventoryManagementSystem.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
@@ -28,13 +28,15 @@ public class UserController {
     }
 
     @PostMapping("/users/register")
-    public ResponseEntity<RegistrationResponse> createUser(@Valid @RequestBody UserRequest userRequest) throws UserAlreadyExistsException {
+    @ResponseStatus(HttpStatus.CREATED)
+    public RegistrationResponse createUser(@Valid @RequestBody UserRequest userRequest) throws UserAlreadyExistsException {
         this.userService.createUser(userRequest);
-        return new ResponseEntity<>(new RegistrationResponse(USER_SUCCESSFULLY_REGISTERED), HttpStatus.CREATED);
+        return new RegistrationResponse(USER_SUCCESSFULLY_REGISTERED);
     }
 
     @PostMapping("/users/login")
-    public ResponseEntity<LoginResponse> createAuthenticationToken(@Valid @RequestBody UserRequest userRequest) throws Exception{
-        return new ResponseEntity<>(this.loginUserService.createAuthenticationToken(userRequest), HttpStatus.CREATED);
+    @ResponseStatus(HttpStatus.CREATED)
+    public LoginResponse createAuthenticationToken(@Valid @RequestBody UserRequest userRequest) throws Exception{
+        return this.loginUserService.createAuthenticationToken(userRequest);
     }
 }
